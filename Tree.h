@@ -11,27 +11,29 @@
 #include <sstream>
 #include <functional>
 #include <queue>
+#include "XMLResource.h"
 
 class Tree {
 public:
     class TreeNode {
-        std::string tag;
-        std::string value;
+        XMLResource::Header tag;
+        XMLResource::Value value;
         std::vector<std::shared_ptr<TreeNode>> children;
 
     public:
-        explicit TreeNode(std::string tag, std::string value) :
+        explicit TreeNode(XMLResource::Header tag, XMLResource::Value value) :
                 tag(std::move(tag)), value(std::move(value)) {}
 
-        void recursivePrintTree(std::ostream &output, int indent, int tabLength);
+        void recursivePrintTree(std::ostream &output, int indent, int tabLength) const;
         void for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 
-        std::weak_ptr<TreeNode> addChild(const std::string &childTagName, const std::string &childValue);
+        std::weak_ptr<TreeNode> addChild(const XMLResource::Header &childTagName,
+                                         const XMLResource::Value &childValue);
         std::weak_ptr<TreeNode> getChild(int index) { return children[index]; }
         unsigned int getChildrenAmount() { return children.size(); }
 
-        std::string getValue() const { return value; }
-        std::string getTag() const { return tag; }
+        [[nodiscard]] XMLResource::Value getValue() const { return value; }
+        [[nodiscard]] XMLResource::Header getTag() const { return tag; }
     };
 private:
     class IteratorList {
@@ -56,8 +58,12 @@ public:
     Tree() : head(nullptr) {iteratorList = IteratorList();}
 
     void load(const std::string &path);
+
     void save(const std::string &path);
     void print();
+
+    std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Header & findHeader);
+    std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Value & findValue);
 
     void for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 };

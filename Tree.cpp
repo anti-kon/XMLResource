@@ -25,13 +25,15 @@ void Tree::load (const std::string& path) {
                 if (treeNodes.empty()) {
                     if (head != nullptr)
                         throw std::runtime_error("Incorrect tree entry in file");
-                    head = std::make_shared<TreeNode>(newTagName, newTagValue);
+                    head = std::make_shared<TreeNode>(XMLResource::Header(newTagName),
+                                                      XMLResource::Value(newTagValue));
                     treeNodes.push(head);
                     newTagValue.clear();
                     newTagName.clear();
                 } else
                     if (std::shared_ptr<TreeNode> stackTop = treeNodes.top().lock())
-                        treeNodes.push(stackTop->addChild(newTagName, newTagValue));
+                        treeNodes.push(stackTop->addChild(XMLResource::Header(newTagName),
+                                                          XMLResource::Value(newTagValue)));
                 newTagNameStart = buffer.find('<', valueEndPosition);
             } else {
                 treeNodes.pop();
@@ -61,7 +63,8 @@ void Tree::print () {
     while (!nodes.empty()) {
         auto currentTopNode = nodes.top();
         if (std::shared_ptr<TreeNode> currentNode = currentTopNode.second.lock()){
-            std::string nodeOutput = "(" + currentNode->getTag() + ") " + currentNode->getValue();
+            std::string nodeOutput = "(" + currentNode->getTag().getHeader() + ") " +
+                    currentNode->getValue().getValue();
             std::cout << std::string(currentTopNode.first, ' ') << nodeOutput << std::endl;
             nodes.pop();
             for (int childIndex = currentNode->getChildrenAmount() - 1; childIndex >= 0; childIndex--)
@@ -71,25 +74,25 @@ void Tree::print () {
     }
 }
 
-std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const std::string &childTagName,
-                                                       const std::string &childValue) {
+std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const XMLResource::Header &childTagName,
+                                                       const XMLResource::Value &childValue) {
     children.emplace_back(std::make_shared<TreeNode>(childTagName, childValue));
     return children.back();
 }
 
-void Tree::TreeNode::recursivePrintTree(std::ostream &output, int indent, int tabLength) {
-    std::string nodeOutput = "<" + tag + " value = \"" + value + "\">";
+void Tree::TreeNode::recursivePrintTree(std::ostream &output, int indent, int tabLength) const {
+    std::string nodeOutput = "<" + tag.getHeader() + " value = \"" + value.getValue() + "\">";
     output << std::string(indent, ' ') << nodeOutput << std::endl;
 
     for (const auto &child: children)
         child->recursivePrintTree(output, indent + tabLength, tabLength);
 
-    output << std::string(indent, ' ') << "</" + tag + ">" << std::endl;
+    output << std::string(indent, ' ') << "</" + tag.getHeader() + ">" << std::endl;
 }
 
 void Tree::TreeNode::for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor) {
     for (std::weak_ptr<TreeNode> child : children)
-            functor(child);
+        functor(child);
 }
 
 void Tree::IteratorList::refreshIteratorList (Tree * tree) {
@@ -130,4 +133,22 @@ void Tree::for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>&
             childNode->for_each_child(bruteForce);
         }
     });
+}
+
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource::Header & findHeader) {
+    return std::find_if(iteratorList.begin(), iteratorList.end(),
+                        [&](const std::weak_ptr<TreeNode>& ptr)
+                                { if(std::shared_ptr currentNode = ptr.lock())
+                                    return currentNode->getTag() == findHeader;
+                                  else
+                                    return false;});
+}
+
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource::Value & findValue) {
+    return std::find_if(iteratorList.begin(), iteratorList.end(),
+                        [&](const std::weak_ptr<TreeNode>& ptr)
+                            { if(std::shared_ptr currentNode = ptr.lock())
+                                return currentNode->getValue() == findValue;
+                              else
+                                return false;});
 }
