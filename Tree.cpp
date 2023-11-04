@@ -102,12 +102,13 @@ void Tree::IteratorList::refreshIteratorList (Tree * tree) {
                                { treeNodesList.push_back(node); });
 }
 
-void Tree::IteratorList::updateIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& parentIter,
-                         const std::weak_ptr<TreeNode>& newTreeNode) {
-    treeNodesList.insert(std::find_if(treeNodesList.begin(), treeNodesList.end(),
-                                      [&](const std::weak_ptr<TreeNode>& ptr)
-                                      {return ptr.lock() == parentIter->lock();}),
-                         newTreeNode);
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::IteratorList::updateIteratorList (
+        const std::list<std::weak_ptr<TreeNode>>::iterator& parentIter,
+        const std::weak_ptr<TreeNode>& newTreeNode) {
+    return treeNodesList.insert(std::find_if(treeNodesList.begin(), treeNodesList.end(),
+                                             [&](const std::weak_ptr<TreeNode>& ptr)
+                                             {return ptr.lock() == parentIter->lock();}),
+                                newTreeNode);
 }
 
 void Tree::IteratorList::eraseFromIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& iter) {
@@ -151,4 +152,15 @@ std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource:
                                 return currentNode->getValue() == findValue;
                               else
                                 return false;});
+}
+
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::add(
+        const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
+        const XMLResource::Header& header, const XMLResource::Value& value) {
+    if(std::shared_ptr parentNode = parentPosition->lock()) {
+        auto newNode = parentNode->addChild(header, value);
+        return iteratorList.updateIteratorList(parentPosition, newNode);
+    } else {
+        throw std::runtime_error("Not found parent position");
+    }
 }

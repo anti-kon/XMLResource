@@ -43,8 +43,9 @@ private:
         IteratorList() {treeNodesList = {};}
 
         void refreshIteratorList (Tree * tree);
-        void updateIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& parentIter,
-                                 const std::weak_ptr<TreeNode>& newTreeNode);
+        std::list<std::weak_ptr<TreeNode>>::iterator updateIteratorList (
+                const std::list<std::weak_ptr<TreeNode>>::iterator& parentIter,
+                const std::weak_ptr<TreeNode>& newTreeNode);
         void eraseFromIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& iter);
 
         std::list<std::weak_ptr<TreeNode>>::iterator begin () { return treeNodesList.begin(); }
@@ -64,6 +65,10 @@ public:
 
     std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Header & findHeader);
     std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Value & findValue);
+
+    std::list<std::weak_ptr<TreeNode>>::iterator add(
+            const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
+            const XMLResource::Header& header, const XMLResource::Value& value);
 
     void for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 };
