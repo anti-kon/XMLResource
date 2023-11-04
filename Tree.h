@@ -18,22 +18,29 @@ public:
     class TreeNode {
         XMLResource::Header tag;
         XMLResource::Value value;
+        std::weak_ptr<TreeNode> parent;
         std::vector<std::shared_ptr<TreeNode>> children;
 
     public:
-        explicit TreeNode(XMLResource::Header tag, XMLResource::Value value) :
-                tag(std::move(tag)), value(std::move(value)) {}
+        explicit TreeNode(XMLResource::Header tag, XMLResource::Value value, std::weak_ptr<TreeNode> parent) :
+                tag(std::move(tag)), value(std::move(value)), parent(std::move(parent)) {}
 
         void recursivePrintTree(std::ostream &output, int indent, int tabLength) const;
         void for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 
         std::weak_ptr<TreeNode> addChild(const XMLResource::Header &childTagName,
-                                         const XMLResource::Value &childValue);
+                                         const XMLResource::Value &childValue,
+                                         const std::weak_ptr<TreeNode>& childParent);
+        std::weak_ptr<TreeNode> addChild(const std::shared_ptr<TreeNode>& newNode);
         std::weak_ptr<TreeNode> getChild(int index) { return children[index]; }
+        void removeChild(const std::weak_ptr<TreeNode>& removeNode);
+
         unsigned int getChildrenAmount() { return children.size(); }
+        void clearChildren() { children.clear(); }
 
         [[nodiscard]] XMLResource::Value getValue() const { return value; }
         [[nodiscard]] XMLResource::Header getTag() const { return tag; }
+        [[nodiscard]] std::weak_ptr<TreeNode> getParent() const { return parent; };
     };
 private:
     class IteratorList {
@@ -69,6 +76,7 @@ public:
     std::list<std::weak_ptr<TreeNode>>::iterator add(
             const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
             const XMLResource::Header& header, const XMLResource::Value& value);
+    void erase(const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition);
 
     void for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 };

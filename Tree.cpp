@@ -26,14 +26,18 @@ void Tree::load (const std::string& path) {
                     if (head != nullptr)
                         throw std::runtime_error("Incorrect tree entry in file");
                     head = std::make_shared<TreeNode>(XMLResource::Header(newTagName),
-                                                      XMLResource::Value(newTagValue));
+                                                      XMLResource::Value(newTagValue),
+                                                      std::shared_ptr<TreeNode> (nullptr));
                     treeNodes.push(head);
                     newTagValue.clear();
                     newTagName.clear();
                 } else
                     if (std::shared_ptr<TreeNode> stackTop = treeNodes.top().lock())
                         treeNodes.push(stackTop->addChild(XMLResource::Header(newTagName),
-                                                          XMLResource::Value(newTagValue)));
+                                                          XMLResource::Value(newTagValue),
+                                                          stackTop));
+                    else
+                        treeNodes.pop();
                 newTagNameStart = buffer.find('<', valueEndPosition);
             } else {
                 treeNodes.pop();
@@ -75,8 +79,9 @@ void Tree::print () {
 }
 
 std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const XMLResource::Header &childTagName,
-                                                       const XMLResource::Value &childValue) {
-    children.emplace_back(std::make_shared<TreeNode>(childTagName, childValue));
+                                                       const XMLResource::Value &childValue,
+                                                       const std::weak_ptr<TreeNode>& childParent) {
+    children.emplace_back(std::make_shared<TreeNode>(childTagName, childValue, childParent));
     return children.back();
 }
 
@@ -93,6 +98,15 @@ void Tree::TreeNode::recursivePrintTree(std::ostream &output, int indent, int ta
 void Tree::TreeNode::for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor) {
     for (std::weak_ptr<TreeNode> child : children)
         functor(child);
+}
+
+std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const std::shared_ptr<TreeNode>& newNode) {
+    children.push_back(newNode);
+    return children.back();
+}
+
+void Tree::TreeNode::removeChild(const std::weak_ptr<TreeNode>& removeNode) {
+    children.erase(std::find(children.begin(), children.end(), removeNode.lock()));
 }
 
 void Tree::IteratorList::refreshIteratorList (Tree * tree) {
@@ -158,9 +172,23 @@ std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::add(
         const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
         const XMLResource::Header& header, const XMLResource::Value& value) {
     if(std::shared_ptr parentNode = parentPosition->lock()) {
-        auto newNode = parentNode->addChild(header, value);
+        auto newNode = parentNode->addChild(header,
+                                            value, parentNode);
         return iteratorList.updateIteratorList(parentPosition, newNode);
     } else {
         throw std::runtime_error("Not found parent position");
     }
+}
+
+void Tree::erase(const std::list<std::weak_ptr<TreeNode>>::iterator& erasePosition) {
+    if(std::shared_ptr eraseNode = erasePosition->lock()) {
+        eraseNode->for_each_child([&] (const std::weak_ptr<TreeNode>& node) {
+            if (std::shared_ptr<TreeNode> parentNode = eraseNode->getParent().lock()) {
+                if (std::shared_ptr<TreeNode> childNode = node.lock())
+                    parentNode->addChild(childNode);
+            } else throw std::runtime_error("Impossible to erase");
+        });
+        eraseNode->clearChildren();
+        eraseNode->getParent().lock()->removeChild(eraseNode);
+    } else throw std::runtime_error("Not found erase position");
 }
