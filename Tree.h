@@ -1,7 +1,6 @@
 #ifndef XMLRESOURCE_TREE_H
 #define XMLRESOURCE_TREE_H
 
-
 #include <iostream>
 #include <utility>
 #include <vector>
@@ -11,35 +10,35 @@
 #include <sstream>
 #include <functional>
 #include <queue>
-#include "XMLResource.h"
+#include "XMLAddition.h"
 
 class Tree {
 public:
     class TreeNode {
-        XMLResource::Header tag;
-        XMLResource::Value value;
+        Header tag;
+        Value value;
         std::weak_ptr<TreeNode> parent;
         std::vector<std::shared_ptr<TreeNode>> children;
 
     public:
-        explicit TreeNode(XMLResource::Header tag, XMLResource::Value value, std::weak_ptr<TreeNode> parent) :
+        explicit TreeNode(Header tag, Value value, std::weak_ptr<TreeNode> parent) :
                 tag(std::move(tag)), value(std::move(value)), parent(std::move(parent)) {}
 
         void recursivePrintTree(std::ostream &output, int indent, int tabLength) const;
         void for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
 
-        std::weak_ptr<TreeNode> addChild(const XMLResource::Header &childTagName,
-                                         const XMLResource::Value &childValue,
+        std::weak_ptr<TreeNode> addChild(const Header &childTagName,
+                                         const Value &childValue,
                                          const std::weak_ptr<TreeNode>& childParent);
         std::weak_ptr<TreeNode> addChild(const std::shared_ptr<TreeNode>& newNode);
-        std::weak_ptr<TreeNode> getChild(int index) { return children[index]; }
+        [[nodiscard]] std::weak_ptr<TreeNode> getChild(int index) const { return children[index]; }
         void removeChild(const std::weak_ptr<TreeNode>& removeNode);
 
-        unsigned int getChildrenAmount() { return children.size(); }
+        [[nodiscard]] unsigned int getChildrenAmount() const { return children.size(); }
         void clearChildren() { children.clear(); }
 
-        [[nodiscard]] XMLResource::Value getValue() const { return value; }
-        [[nodiscard]] XMLResource::Header getTag() const { return tag; }
+        [[nodiscard]] Value getValue() const { return value; }
+        [[nodiscard]] Header getTag() const { return tag; }
         [[nodiscard]] std::weak_ptr<TreeNode> getParent() const { return parent; };
     };
 private:
@@ -65,20 +64,23 @@ private:
 public:
     Tree() : head(nullptr) {iteratorList = IteratorList();}
 
-    void load(const std::string &path);
+    void load(std::ifstream & inputFile);
 
-    void save(const std::string &path);
-    void print();
+    void save(std::ofstream& outputFile);
+    void print() const;
 
-    std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Header & findHeader);
-    std::list<std::weak_ptr<TreeNode>>::iterator find(const XMLResource::Value & findValue);
+    std::list<std::weak_ptr<TreeNode>>::iterator find(const Header & findHeader);
+    std::list<std::weak_ptr<TreeNode>>::iterator find(const Value & findValue);
 
     std::list<std::weak_ptr<TreeNode>>::iterator add(
             const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
-            const XMLResource::Header& header, const XMLResource::Value& value);
+            const Header& header, const Value& value);
     void erase(const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition);
 
     void for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor);
+
+    std::list<std::weak_ptr<Tree::TreeNode>>::iterator begin () { return iteratorList.begin(); };
+    std::list<std::weak_ptr<Tree::TreeNode>>::iterator end () { return iteratorList.end(); };
 };
 
 #endif //XMLRESOURCE_TREE_H

@@ -4,33 +4,43 @@
 
 #include <string>
 #include <utility>
+#include "Tree.h"
 
 class XMLResource {
+private:
+    Tree tree;
+
+    explicit XMLResource(const std::string& path) {
+        std::ifstream inputFile;
+        try{
+            tree = Tree();
+
+            inputFile.open(path);
+
+            if (!inputFile.is_open() || path.substr(path.length() - 4, 4) != ".xml")
+                return;
+
+            tree.load(inputFile);
+        } catch (...) {
+            tree = Tree();
+        }
+        inputFile.close();
+    }
 public:
-    class Header {
-        std::string header;
-    public:
-        explicit Header(std::string header) : header(std::move(header)) {}
+    void load(const std::string &path);
 
-        bool operator == (const Header& other) const {
-            return (other.header == header);
-        };
+    void print() const;
+    void save(const std::string &path);
 
-        [[nodiscard]] std::string getHeader() const { return header; };
-    };
+    std::list<std::weak_ptr<Tree::TreeNode>>::iterator find(const Header & findHeader);
+    std::list<std::weak_ptr<Tree::TreeNode>>::iterator find(const Value & findValue);
 
-    class Value {
-        std::string value;
-    public:
-        explicit Value(std::string value) : value(std::move(value)) {}
+    std::list<std::weak_ptr<Tree::TreeNode>>::iterator add(
+            const std::list<std::weak_ptr<Tree::TreeNode>>::iterator& parentPosition,
+            const Header& header, const Value& value);
+    bool erase(const std::list<std::weak_ptr<Tree::TreeNode>>::iterator& erasePosition);
 
-        bool operator == (const Value& other) const {
-            return (other.value == value);
-        };
-
-        [[nodiscard]] std::string getValue() const { return value; };
-    };
+    static std::unique_ptr<XMLResource> create (const std::string& path);
 };
-
 
 #endif //XMLRESOURCE_XMLRESOURCE_H

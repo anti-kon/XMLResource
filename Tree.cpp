@@ -1,15 +1,10 @@
 #include "Tree.h"
 
-void Tree::load (const std::string& path) {
-    std::ifstream inputFile;
-    inputFile.open(path);
-
-    if (!inputFile.is_open())
-        throw std::runtime_error("Unable to open file");
-
+void Tree::load (std::ifstream & inputFile) {
     std::string buffer;
     std::stack<std::weak_ptr<TreeNode>> treeNodes;
 
+    head.reset();
     std::getline(inputFile, buffer);
     while (!inputFile.eof()) {
         auto newTagNameStart = buffer.find('<');
@@ -25,16 +20,16 @@ void Tree::load (const std::string& path) {
                 if (treeNodes.empty()) {
                     if (head != nullptr)
                         throw std::runtime_error("Incorrect tree entry in file");
-                    head = std::make_shared<TreeNode>(XMLResource::Header(newTagName),
-                                                      XMLResource::Value(newTagValue),
+                    head = std::make_shared<TreeNode>(Header(newTagName),
+                                                      Value(newTagValue),
                                                       std::shared_ptr<TreeNode> (nullptr));
                     treeNodes.push(head);
                     newTagValue.clear();
                     newTagName.clear();
                 } else
                     if (std::shared_ptr<TreeNode> stackTop = treeNodes.top().lock())
-                        treeNodes.push(stackTop->addChild(XMLResource::Header(newTagName),
-                                                          XMLResource::Value(newTagValue),
+                        treeNodes.push(stackTop->addChild(Header(newTagName),
+                                                          Value(newTagValue),
                                                           stackTop));
                     else
                         treeNodes.pop();
@@ -54,14 +49,13 @@ void Tree::load (const std::string& path) {
     iteratorList.refreshIteratorList(this);
 }
 
-void Tree::save (const std::string& path) {
-    std::ofstream outputFile;
-    outputFile.open(path);
-
+void Tree::save (std::ofstream& outputFile) {
+    if (head == nullptr)
+        throw std::runtime_error("Incorrect tree entry in file");
     head->recursivePrintTree(outputFile, 0, 4);
 }
 
-void Tree::print () {
+void Tree::print () const {
     std::stack<std::pair <int, std::weak_ptr<TreeNode>>> nodes;
     nodes.emplace(0, head);
     while (!nodes.empty()) {
@@ -78,8 +72,8 @@ void Tree::print () {
     }
 }
 
-std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const XMLResource::Header &childTagName,
-                                                       const XMLResource::Value &childValue,
+std::weak_ptr<Tree::TreeNode> Tree::TreeNode::addChild(const Header &childTagName,
+                                                       const Value &childValue,
                                                        const std::weak_ptr<TreeNode>& childParent) {
     children.emplace_back(std::make_shared<TreeNode>(childTagName, childValue, childParent));
     return children.back();
@@ -150,7 +144,7 @@ void Tree::for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>&
     });
 }
 
-std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource::Header & findHeader) {
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const Header & findHeader) {
     return std::find_if(iteratorList.begin(), iteratorList.end(),
                         [&](const std::weak_ptr<TreeNode>& ptr)
                                 { if(std::shared_ptr currentNode = ptr.lock())
@@ -159,7 +153,7 @@ std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource:
                                     return false;});
 }
 
-std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource::Value & findValue) {
+std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const Value & findValue) {
     return std::find_if(iteratorList.begin(), iteratorList.end(),
                         [&](const std::weak_ptr<TreeNode>& ptr)
                             { if(std::shared_ptr currentNode = ptr.lock())
@@ -170,7 +164,7 @@ std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::find(const XMLResource:
 
 std::list<std::weak_ptr<Tree::TreeNode>>::iterator Tree::add(
         const std::list<std::weak_ptr<TreeNode>>::iterator& parentPosition,
-        const XMLResource::Header& header, const XMLResource::Value& value) {
+        const Header& header, const Value& value) {
     if(std::shared_ptr parentNode = parentPosition->lock()) {
         auto newNode = parentNode->addChild(header,
                                             value, parentNode);
@@ -189,6 +183,7 @@ void Tree::erase(const std::list<std::weak_ptr<TreeNode>>::iterator& erasePositi
             } else throw std::runtime_error("Impossible to erase");
         });
         eraseNode->clearChildren();
+        iteratorList.eraseFromIteratorList(erasePosition);
         eraseNode->getParent().lock()->removeChild(eraseNode);
     } else throw std::runtime_error("Not found erase position");
 }
