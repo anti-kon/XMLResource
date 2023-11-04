@@ -44,14 +44,13 @@ void Tree::load (const std::string& path) {
 
     if (!treeNodes.empty())
         throw std::runtime_error("Incorrect tree entry in file");
+
+    iteratorList.refreshIteratorList(this);
 }
 
 void Tree::save (const std::string& path) {
     std::ofstream outputFile;
     outputFile.open(path);
-
-    if (!outputFile.is_open())
-        throw std::runtime_error("Unable to open file");
 
     head->recursivePrintTree(outputFile, 0, 4);
 }
@@ -86,4 +85,49 @@ void Tree::TreeNode::recursivePrintTree(std::ostream &output, int indent, int ta
         child->recursivePrintTree(output, indent + tabLength, tabLength);
 
     output << std::string(indent, ' ') << "</" + tag + ">" << std::endl;
+}
+
+void Tree::TreeNode::for_each_child (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor) {
+    for (std::weak_ptr<TreeNode> child : children)
+            functor(child);
+}
+
+void Tree::IteratorList::refreshIteratorList (Tree * tree) {
+    treeNodesList.clear();
+
+    tree->for_each([&] (const std::weak_ptr<TreeNode>& node)
+                               { treeNodesList.push_back(node); });
+}
+
+void Tree::IteratorList::updateIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& parentIter,
+                         const std::weak_ptr<TreeNode>& newTreeNode) {
+    treeNodesList.insert(std::find_if(treeNodesList.begin(), treeNodesList.end(),
+                                      [&](const std::weak_ptr<TreeNode>& ptr)
+                                      {return ptr.lock() == parentIter->lock();}),
+                         newTreeNode);
+}
+
+void Tree::IteratorList::eraseFromIteratorList (const std::list<std::weak_ptr<TreeNode>>::iterator& iter) {
+    treeNodesList.erase(std::find_if(treeNodesList.begin(), treeNodesList.end(),
+                                     [&](const std::weak_ptr<TreeNode>& ptr)
+                                     {return ptr.lock() == iter->lock();}));
+}
+
+void Tree::for_each (const std::function<void (const std::weak_ptr<TreeNode>&)>& functor) {
+    functor(head);
+
+    std::function<void (const std::weak_ptr<TreeNode>& node)> bruteForce;
+    bruteForce = [&](const std::weak_ptr<TreeNode>& node) {
+        if (std::shared_ptr<TreeNode> childNode = node.lock()){
+            functor(childNode);
+            childNode->for_each_child(bruteForce);
+        }
+    };
+
+    head->for_each_child([&] (const std::weak_ptr<TreeNode>& node) {
+        if (std::shared_ptr<TreeNode> childNode = node.lock()) {
+            functor(childNode);
+            childNode->for_each_child(bruteForce);
+        }
+    });
 }
